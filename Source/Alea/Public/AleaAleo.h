@@ -26,6 +26,12 @@ public:
 	UFUNCTION(Server, Reliable, BlueprintCallable)
 	void ServerConsumeMana(float ManaCost);
 
+	UFUNCTION(BlueprintCallable)
+	class AAleaItemInPool* BuyItem(const TSubclassOf<AAleaItemInPool> ItemClass);
+
+	UFUNCTION(BlueprintCallable)
+	void SellItem(AAleaItemInPool* Item);
+
 protected:
 	virtual void BeginPlay() override;
 
@@ -39,7 +45,10 @@ protected:
 
 private:
 	UFUNCTION(Server, Reliable)
-	void ServerTakeDamage(float FinalDamage, AActor* DamageCauser);
+	void ServerTakeDamage(float FinalDamage);
+
+	UFUNCTION(Server, Reliable)
+	void ServerDie(AActor* DamageCauser);
 
 	UFUNCTION(NetMulticast, Reliable)
 	void MulticastDie();
@@ -89,6 +98,9 @@ private:
 	uint8 bAutoAttacking : 1;
 
 	uint8 bLockingCamera : 1;
+
+	UPROPERTY(BlueprintReadWrite, meta = (AllowPrivateAccess = true))
+	bool bOpenShop;
 
 	FVector DestLoc;
 
