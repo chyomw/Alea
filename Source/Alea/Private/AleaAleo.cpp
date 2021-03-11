@@ -5,7 +5,7 @@
 #include "AleaAleoSkillRow.h"
 #include "AleaAleoSkillStatRow.h"
 #include "AleaActorPool.h"
-#include "AleaProjectileInPool.h"
+#include "AleaItemInPool.h"
 
 #include "Blueprint/AIBlueprintHelperLibrary.h"
 #include "Camera/CameraComponent.h"
@@ -91,7 +91,6 @@ void AAleaAleo::ServerAddExp_Implementation(float Exp)
 		MulticastLevelUp();
 	}
 }
-
 void AAleaAleo::ServerAddChips_Implementation(int Chips)
 {
 	HoldingChips += Chips;
@@ -105,6 +104,18 @@ void AAleaAleo::ServerUseSkillPoints_Implementation()
 void AAleaAleo::ServerConsumeMana_Implementation(float ManaCost)
 {
 	Mana -= ManaCost;
+}
+
+AAleaItemInPool* AAleaAleo::BuyItem(const TSubclassOf<AAleaItemInPool> ItemClass)
+{
+	AAleaItemInPool* Item = Cast<AAleaItemInPool>(ActorPool->Spawn(ItemClass, GetActorTransform()));
+	Item->SetOwningPlayer(this);
+	return Item;
+}
+
+void AAleaAleo::SellItem(AAleaItemInPool* Item)
+{
+	Item->SetOwningPlayer(nullptr);
 }
 
 void AAleaAleo::BeginPlay()
@@ -263,28 +274,35 @@ void AAleaAleo::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetim
 float AAleaAleo::TakeDamage(float Damage, FDamageEvent const& DamageEvent, AController* EventInstigator, AActor* DamageCauser)
 {
 	float FinalDamage = Super::TakeDamage(Damage, DamageEvent, EventInstigator, DamageCauser);
-
-	ServerTakeDamage(FinalDamage, DamageCauser);
+	
+	if (Health - FinalDamage > 0.f)
+	{
+		ServerTakeDamage(FinalDamage);
+	}
+	else
+	{
+		ServerDie(DamageCauser);
+	}
 
 	return FinalDamage;
 }
 
-void AAleaAleo::ServerTakeDamage_Implementation(float FinalDamage, AActor* DamageCauser)
+void AAleaAleo::ServerTakeDamage_Implementation(float FinalDamage)
 {
 	Health -= FinalDamage;
+}
 
-	if (Health <= 0.f)
+void AAleaAleo::ServerDie_Implementation(AActor* DamageCauser)
+{
+	bDead = true;
+	Mana = 0.f;
+
+	MulticastDie();
+
+	if (AAleaAleo* Enemy = Cast<AAleaAleo>(DamageCauser))
 	{
-		bDead = true;
-		Mana = 0.f;
-
-		MulticastDie();
-
-		if (AAleaAleo* Enemy = Cast<AAleaAleo>(DamageCauser))
-		{
-			Enemy->ServerAddExp(90.f + Level * 50.f);
-			Enemy->ServerAddChips(300);
-		}
+		Enemy->ServerAddExp(90.f + Level * 50.f);
+		Enemy->ServerAddChips(300);
 	}
 }
 
