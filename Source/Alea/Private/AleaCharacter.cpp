@@ -42,6 +42,6 @@ void AAleaCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLi
 
 void AAleaCharacter::MulticastAttack_Implementation(UParticleSystem* AttackEffect, class USoundCue* AttackSound, UParticleSystem* Hit, class AAleaCharacter* Spwnr, AAleaCharacter* Trgt, float Damage)
 {
-	AAleaProjectileInPool* Projectile = Cast<AAleaProjectileInPool>(ActorPool->Spawn(AAleaProjectileInPool::StaticClass(), GetActorTransform(), FActorSpawnParameters{}));
+	AAleaProjectileInPool* Projectile = Cast<AAleaProjectileInPool>(ActorPool->Spawn(AAleaProjectileInPool::StaticClass(), GetActorTransform()));
 	Projectile->Initialize(AttackEffect, AttackSound, Hit, Spwnr, Trgt, Damage);
 }
