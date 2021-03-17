@@ -102,6 +102,9 @@ private:
 	UPROPERTY(BlueprintReadWrite, meta = (AllowPrivateAccess = true))
 	bool bOpenShop;
 
+	UPROPERTY(BlueprintReadWrite, meta = (AllowPrivateAccess = true))
+	bool bCanDeal;
+
 	FVector DestLoc;
 
 	class USpringArmComponent* SpringArm;
