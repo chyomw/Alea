@@ -26,6 +26,9 @@ public:
 	UFUNCTION(Server, Reliable, BlueprintCallable)
 	void ServerConsumeMana(float ManaCost);
 
+	UFUNCTION(Server, Reliable, BlueprintCallable)
+	void ServerSetCanDeal(bool bOverlap);
+
 	UFUNCTION(BlueprintCallable)
 	class AAleaItemInPool* BuyItem(const TSubclassOf<AAleaItemInPool> ItemClass);
 
@@ -102,7 +105,7 @@ private:
 	UPROPERTY(BlueprintReadWrite, meta = (AllowPrivateAccess = true))
 	bool bOpenShop;
 
-	UPROPERTY(BlueprintReadWrite, meta = (AllowPrivateAccess = true))
+	UPROPERTY(Replicated, BlueprintReadOnly, meta = (AllowPrivateAccess = true))
 	bool bCanDeal;
 
 	FVector DestLoc;
@@ -142,7 +145,7 @@ private:
 	UPROPERTY(Replicated, BlueprintReadOnly, meta = (AllowPrivateAccess = true))
 	float Experience;
 
-	UPROPERTY(BlueprintReadOnly, meta = (AllowPrivateAccess = true))
+	UPROPERTY(Replicated, BlueprintReadOnly, meta = (AllowPrivateAccess = true))
 	float HealthRegen;
 
 	UPROPERTY(Replicated, BlueprintReadOnly, meta = (AllowPrivateAccess = true))
@@ -151,7 +154,7 @@ private:
 	UPROPERTY(Replicated, BlueprintReadWrite, meta = (AllowPrivateAccess = true))
 	float Mana;
 
-	UPROPERTY(BlueprintReadOnly, meta = (AllowPrivateAccess = true))
+	UPROPERTY(Replicated, BlueprintReadOnly, meta = (AllowPrivateAccess = true))
 	float ManaRegen;
 
 	UPROPERTY(Replicated, BlueprintReadOnly, meta = (AllowPrivateAccess = true))
