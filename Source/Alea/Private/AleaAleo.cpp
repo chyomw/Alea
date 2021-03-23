@@ -72,7 +72,7 @@ void AAleaAleo::ServerAddExp_Implementation(float Exp)
 {
 	Experience += Exp;
 
-	if (Experience >= 280.f + (Level - 1.f) * 100.f)
+	if (Experience >= MaxExperience)
 	{
 		++Level;
 		++AvailableSkillPoints;
@@ -91,10 +91,21 @@ void AAleaAleo::ServerAddExp_Implementation(float Exp)
 		MulticastLevelUp();
 	}
 }
+
 void AAleaAleo::ServerAddChips_Implementation(int Chips)
 {
 	HoldingChips += Chips;
 }
+
+void AAleaAleo::ServerAddKillCount_Implementation()
+{
+	++KillCount;
+}
+
+void AAleaAleo::ServerAddStickmanCount_Implementation()
+{
+	++StickmanCount;
+}                                                                                                                                                     
 
 void AAleaAleo::ServerUseSkillPoints_Implementation()
 {
@@ -104,6 +115,11 @@ void AAleaAleo::ServerUseSkillPoints_Implementation()
 void AAleaAleo::ServerConsumeMana_Implementation(float ManaCost)
 {
 	Mana -= ManaCost;
+}
+
+void AAleaAleo::ServerSetCanDeal_Implementation(bool bOverlap)
+{
+	bCanDeal = bOverlap;
 }
 
 AAleaItemInPool* AAleaAleo::BuyItem(const TSubclassOf<AAleaItemInPool> ItemClass)
@@ -139,33 +155,51 @@ void AAleaAleo::BeginPlay()
 
 	GetCharacterMovement()->MaxWalkSpeed = StatTable->FindRow<FAleaAleoStatRow>(*(FString::FormatAsNumber(Level)), TEXT(""))->GetMovementSpeed();
 
-	FTimerHandle RegenTimer;
-	GetWorldTimerManager().SetTimer(RegenTimer, FTimerDelegate::CreateLambda([this]() -> void
-		{
-			if (!bDead)
+	if (HasAuthority())
+	{
+		FTimerHandle RegenTimer;
+		GetWorldTimerManager().SetTimer(RegenTimer, FTimerDelegate::CreateLambda([this]() -> void
 			{
-				HealthRegen = StatTable->FindRow<FAleaAleoStatRow>(*(FString::FormatAsNumber(Level)), TEXT(""))->GetHealthRegen();
-				ManaRegen = StatTable->FindRow<FAleaAleoStatRow>(*(FString::FormatAsNumber(Level)), TEXT(""))->GetManaRegen();
-
-				if (Health < MaxHealth)
+				if (!bDead)
 				{
-					Health = Health + HealthRegen > MaxHealth ? MaxHealth : Health + HealthRegen;
-				}
+					if (bCanDeal)
+					{
+						if (Health < MaxHealth)
+						{
+							Health = Health + HealthRegen * 20.f > MaxHealth ? MaxHealth : Health + HealthRegen * 20.f;
+						}
 
-				if (Mana < MaxMana)
-				{
-					Mana = Mana + ManaRegen > MaxMana ? MaxMana : Mana + ManaRegen;
+						if (Mana < MaxMana)
+						{
+							Mana = Mana + ManaRegen * 20.f > MaxMana ? MaxMana : Mana + ManaRegen * 20.f;
+						}
+					}
+					else
+					{
+						HealthRegen = StatTable->FindRow<FAleaAleoStatRow>(*(FString::FormatAsNumber(Level)), TEXT(""))->GetHealthRegen();
+						ManaRegen = StatTable->FindRow<FAleaAleoStatRow>(*(FString::FormatAsNumber(Level)), TEXT(""))->GetManaRegen();
+
+						if (Health < MaxHealth)
+						{
+							Health = Health + HealthRegen > MaxHealth ? MaxHealth : Health + HealthRegen;
+						}
+
+						if (Mana < MaxMana)
+						{
+							Mana = Mana + ManaRegen > MaxMana ? MaxMana : Mana + ManaRegen;
+						}
+					}
 				}
 			}
-		}
-	), 0.5f, true, 0.f);
+		), 0.5f, true, 0.f);
 
-	FTimerHandle ChipObtainTimer;
-	GetWorldTimerManager().SetTimer(ChipObtainTimer, FTimerDelegate::CreateLambda([this]() -> void
-		{
-			HoldingChips += 1;
-		}
-	), 1.f, true, 90.f);
+		FTimerHandle ChipObtainTimer;
+		GetWorldTimerManager().SetTimer(ChipObtainTimer, FTimerDelegate::CreateLambda([this]() -> void
+			{
+				HoldingChips += 1;
+			}
+		), 1.f, true, 90.f);
+	}
 }
 
 void AAleaAleo::Tick(float DeltaSeconds)
@@ -254,6 +288,8 @@ void AAleaAleo::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
 	PlayerInputComponent->BindAction(TEXT("AutoAttack"), IE_Pressed, this, &AAleaAleo::ReqAutoAttack);
 
 	PlayerInputComponent->BindAction(TEXT("ToggleCameraLock"), IE_Pressed, this, &AAleaAleo::ToggleCameraLock);
+
+	PlayerInputComponent->BindAction(TEXT("Return"), IE_Pressed, this, &AAleaAleo::Return);
 }
 
 void AAleaAleo::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
@@ -262,24 +298,28 @@ void AAleaAleo::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetim
 
 	DOREPLIFETIME(AAleaAleo, bInitialize);
 	DOREPLIFETIME(AAleaAleo, bMoving);
+	DOREPLIFETIME(AAleaAleo, bCanDeal);
 	DOREPLIFETIME(AAleaAleo, Level);
 	DOREPLIFETIME(AAleaAleo, AvailableSkillPoints);
 	DOREPLIFETIME(AAleaAleo, MaxExperience);
 	DOREPLIFETIME(AAleaAleo, Experience);
+	DOREPLIFETIME(AAleaAleo, HealthRegen);
 	DOREPLIFETIME(AAleaAleo, MaxMana);
 	DOREPLIFETIME(AAleaAleo, Mana);
+	DOREPLIFETIME(AAleaAleo, ManaRegen);
+	DOREPLIFETIME(AAleaAleo, KillCount);
+	DOREPLIFETIME(AAleaAleo, DeathCount);
+	DOREPLIFETIME(AAleaAleo, StickmanCount);
 	DOREPLIFETIME(AAleaAleo, HoldingChips);
 }
 
 float AAleaAleo::TakeDamage(float Damage, FDamageEvent const& DamageEvent, AController* EventInstigator, AActor* DamageCauser)
 {
 	float FinalDamage = Super::TakeDamage(Damage, DamageEvent, EventInstigator, DamageCauser);
-	
-	if (Health - FinalDamage > 0.f)
-	{
-		ServerTakeDamage(FinalDamage);
-	}
-	else
+
+	ServerTakeDamage(FinalDamage);
+
+	if (!bDead && Health <= 0.f)
 	{
 		ServerDie(DamageCauser);
 	}
@@ -296,12 +336,14 @@ void AAleaAleo::ServerDie_Implementation(AActor* DamageCauser)
 {
 	bDead = true;
 	Mana = 0.f;
+	++DeathCount;
 
 	MulticastDie();
 
 	if (AAleaAleo* Enemy = Cast<AAleaAleo>(DamageCauser))
 	{
 		Enemy->ServerAddExp(90.f + Level * 50.f);
+		Enemy->ServerAddKillCount();
 		Enemy->ServerAddChips(300);
 	}
 }
@@ -343,6 +385,8 @@ void AAleaAleo::ReqMove()
 {
 	if (!bOpenShop)
 	{
+		GetWorldTimerManager().ClearTimer(ReturnTimer);
+
 		bPositioning = !bPositioning;
 
 		FHitResult HitResult;
@@ -362,9 +406,8 @@ void AAleaAleo::ReqMove()
 			GetWorldTimerManager().SetTimer(HideCursorHitPointTimer, FTimerDelegate::CreateLambda([this, &HideCursorHitPointTimer]() -> void
 				{
 					CursorHitPoint->SetVisibility(false);
-					HideCursorHitPointTimer.Invalidate();
 				}
-			), 0.5f, false, 0.f);
+			), 1.f, false, 0.f);
 		}
 	}
 }
@@ -439,6 +482,8 @@ void AAleaAleo::ReqAutoAttack()
 	{
 		if (Cast<AAleaCharacter>(HitResult.Actor)->Team != Team)
 		{
+			GetWorldTimerManager().ClearTimer(ReturnTimer);
+
 			bAutoAttacking = true;
 			TrgtAutoAttacked = Cast<AAleaCharacter>(HitResult.Actor);
 			ServerSetTarget(TrgtAutoAttacked);
@@ -605,4 +650,37 @@ void AAleaAleo::MoveCamera(bool bForR, bool bPorN)
 	DstCameraLocation.Y += DirectionR * Axis;
 
 	UnlockedCamera->SetWorldLocation(FMath::VInterpTo(UnlockedCamera->GetComponentLocation(), DstCameraLocation, GetWorld()->GetDeltaSeconds(), 20.f));
+}
+
+void AAleaAleo::Return()
+{
+	bPositioning = false;
+	DestLoc = FVector::ZeroVector;
+
+	GetWorldTimerManager().SetTimer(ReturnTimer, FTimerDelegate::CreateLambda([this]() -> void
+		{
+			ServerReturn();
+			GetWorldTimerManager().ClearTimer(ReturnTimer);
+		}
+	), 8.f, false);
+}
+
+void AAleaAleo::ServerReturn_Implementation()
+{
+	MulticastReturn();
+}
+
+void AAleaAleo::MulticastReturn_Implementation()
+{
+	TArray<AActor*> OutActors;
+	UGameplayStatics::GetAllActorsOfClass(this, APlayerStart::StaticClass(), OutActors);
+
+	for (AActor* OutActor : OutActors)
+	{
+		if (Team == Cast<APlayerStart>(OutActor)->PlayerStartTag)
+		{
+			TeleportTo(OutActor->GetActorLocation(), OutActor->GetActorRotation());
+			break;
+		}
+	}
 }
