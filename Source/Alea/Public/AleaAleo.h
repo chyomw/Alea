@@ -17,6 +17,12 @@ public:
 	UFUNCTION(Server, Reliable)
 	void ServerAddExp(float Exp);
 
+	UFUNCTION(Server, Reliable)
+	void ServerAddKillCount();
+
+	UFUNCTION(Server, Reliable)
+	void ServerAddStickmanCount();
+
 	UFUNCTION(Server, Reliable, BlueprintCallable)
 	void ServerAddChips(int Chips);
 
@@ -90,6 +96,14 @@ private:
 	void CheckMousePosition(bool bXorY, bool& bLorT, bool& bRorB);
 	void MoveCamera(bool bForR, bool bPorM);
 
+	void Recall();
+
+	UFUNCTION(Server, Reliable)
+	void ServerRecall();
+
+	UFUNCTION(NetMulticast, Reliable)
+	void MulticastRecall();
+
 	UPROPERTY(Replicated)
 	uint8 bInitialize : 1;
 
@@ -103,12 +117,27 @@ private:
 	uint8 bLockingCamera : 1;
 
 	UPROPERTY(BlueprintReadWrite, meta = (AllowPrivateAccess = true))
+	bool bQ;
+
+	UPROPERTY(BlueprintReadWrite, meta = (AllowPrivateAccess = true))
+	bool bW;
+
+	UPROPERTY(BlueprintReadWrite, meta = (AllowPrivateAccess = true))
+	bool bE;
+
+	UPROPERTY(BlueprintReadWrite, meta = (AllowPrivateAccess = true))
+	bool bR;
+
+	UPROPERTY(BlueprintReadWrite, meta = (AllowPrivateAccess = true))
 	bool bOpenShop;
 
 	UPROPERTY(Replicated, BlueprintReadOnly, meta = (AllowPrivateAccess = true))
 	bool bCanDeal;
 
 	FVector DestLoc;
+
+	UPROPERTY(BlueprintReadWrite, meta = (AllowPrivateAccess = true))
+	FTimerHandle RecallTimer;
 
 	class USpringArmComponent* SpringArm;
 	class UCameraComponent* LockedCamera;
@@ -159,6 +188,15 @@ private:
 
 	UPROPERTY(Replicated, BlueprintReadOnly, meta = (AllowPrivateAccess = true))
 	float RespawnWaitTime;
+
+	UPROPERTY(Replicated, BlueprintReadOnly, meta = (AllowPrivateAccess = true))
+	int KillCount = 0;
+
+	UPROPERTY(Replicated, BlueprintReadOnly, meta = (AllowPrivateAccess = true))
+	int DeathCount = 0;
+
+	UPROPERTY(Replicated, BlueprintReadOnly, meta = (AllowPrivateAccess = true))
+	int StickmanCount = 0;
 
 	UPROPERTY(Replicated, BlueprintReadWrite, meta = (AllowPrivateAccess = true))
 	int HoldingChips = 500;
